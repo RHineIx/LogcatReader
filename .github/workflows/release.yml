@@ -35,26 +35,29 @@ jobs:
 
       - name: Accept Android SDK Licenses
         run: |
-          yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+          yes | sdkmanager --licenses || true
 
       - name: Prepare Signing Keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          echo "Decoding signing keystore..."
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/keystore.jks"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding signing keystore..."
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/keystore.jks"
 
-          echo "Generating keystore.properties..."
-          cat <<EOF > "$GITHUB_WORKSPACE/keystore.properties"
-          keyAlias=$KEY_ALIAS
-          keyPassword=$KEY_PASSWORD
-          storeFile=$GITHUB_WORKSPACE/keystore.jks
-          storePassword=$STORE_PASSWORD
-          EOF
+            echo "Generating keystore.properties..."
+            cat <<EOF > "$GITHUB_WORKSPACE/keystore.properties"
+            keyAlias=$KEY_ALIAS
+            keyPassword=$KEY_PASSWORD
+            storeFile=$GITHUB_WORKSPACE/keystore.jks
+            storePassword=$STORE_PASSWORD
+            EOF
+          else
+            echo "No KEYSTORE_BASE64 secret found. Skipping keystore configuration."
+          fi
 
       - name: Grant Execute Permission for Gradlew
         run: chmod +x gradlew
@@ -67,7 +70,11 @@ jobs:
         run: |
           APK_PATH="app/build/outputs/apk/release/app-release.apk"
           if [ ! -f "$APK_PATH" ]; then
-            echo "Error: Release APK not found at $APK_PATH"
+            APK_PATH=$(find app/build/outputs/apk/release -type f -name "*.apk" | head -n 1)
+          fi
+
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "Error: No release APK found in app/build/outputs/apk/release/"
             exit 1
           fi
 
@@ -77,6 +84,8 @@ jobs:
 
           cp "$APK_PATH" "$TARGET_NAME"
           echo "apk_path=$TARGET_NAME" >> "$GITHUB_OUTPUT"
+
+          echo "Target APK ready: $TARGET_NAME"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
