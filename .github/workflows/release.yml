@@ -49,12 +49,10 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/keystore.jks"
 
             echo "Generating keystore.properties..."
-            cat <<EOF > "$GITHUB_WORKSPACE/keystore.properties"
-            keyAlias=$KEY_ALIAS
-            keyPassword=$KEY_PASSWORD
-            storeFile=$GITHUB_WORKSPACE/keystore.jks
-            storePassword=$STORE_PASSWORD
-            EOF
+            echo "keyAlias=$KEY_ALIAS" > "$GITHUB_WORKSPACE/keystore.properties"
+            echo "keyPassword=$KEY_PASSWORD" >> "$GITHUB_WORKSPACE/keystore.properties"
+            echo "storeFile=$GITHUB_WORKSPACE/keystore.jks" >> "$GITHUB_WORKSPACE/keystore.properties"
+            echo "storePassword=$STORE_PASSWORD" >> "$GITHUB_WORKSPACE/keystore.properties"
           else
             echo "No KEYSTORE_BASE64 secret found. Skipping keystore configuration."
           fi
