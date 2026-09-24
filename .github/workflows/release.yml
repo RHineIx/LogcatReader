@@ -1,0 +1,101 @@
+name: Build & Release APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Prepare Signing Keystore
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          echo "Decoding signing keystore..."
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$GITHUB_WORKSPACE/keystore.jks"
+
+          echo "Generating keystore.properties..."
+          cat <<EOF > "$GITHUB_WORKSPACE/keystore.properties"
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          storeFile=$GITHUB_WORKSPACE/keystore.jks
+          storePassword=$STORE_PASSWORD
+          EOF
+
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x gradlew
+
+      - name: Build Release APK
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Prepare Release Artifacts
+        id: prepare_artifacts
+        run: |
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "Error: Release APK not found at $APK_PATH"
+            exit 1
+          fi
+
+          # Extract version tag or commit SHA for consistent file naming
+          VERSION_NAME="${GITHUB_REF_NAME:-$(git rev-parse --short HEAD)}"
+          TARGET_NAME="LogcatReader-${VERSION_NAME}.apk"
+
+          cp "$APK_PATH" "$TARGET_NAME"
+          echo "apk_path=$TARGET_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: ${{ steps.prepare_artifacts.outputs.apk_path }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+      - name: Upload Artifact (Fallback for Manual Runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.prepare_artifacts.outputs.apk_path }}
+          path: ${{ steps.prepare_artifacts.outputs.apk_path }}
+          retention-days: 7
+
+      - name: Clean Up Keystore Secrets
+        if: always()
+        run: |
+          rm -f "$GITHUB_WORKSPACE/keystore.jks"
+          rm -f "$GITHUB_WORKSPACE/keystore.properties"
