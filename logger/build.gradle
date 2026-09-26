@@ -25,8 +25,4 @@ android {
 dependencies {
   implementation fileTree(dir: 'libs', include: ['*.jar'])
   implementation libs.kotlin.reflect
-
-  testImplementation libs.junit
-  androidTestImplementation libs.runner
-  androidTestImplementation libs.espresso.core
 }

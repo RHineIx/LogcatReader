@@ -18,7 +18,6 @@ android {
     minSdkVersion 23
     versionCode 48
     versionName "2.6.1"
-    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true
   }
 
@@ -109,17 +108,12 @@ dependencies {
   // Compose
   def composeBom = platform(libs.compose.bom)
   implementation composeBom
-  androidTestImplementation composeBom
   // Material Design 3
   implementation libs.material3
 
   // Android Studio Preview support
   implementation libs.ui.tooling.preview
   debugImplementation libs.ui.tooling
-
-  // UI Tests
-  androidTestImplementation libs.ui.test.junit4
-  debugImplementation libs.ui.test.manifest
 
   // Optional - Included automatically by material, only add when you need
   // the icons but not the material library (e.g. when using Material3 or a
@@ -134,8 +128,4 @@ dependencies {
   implementation libs.activity.compose
   // Optional - Integration with ViewModels
   implementation libs.lifecycle.viewmodel.compose
-
-  testImplementation libs.junit
-  androidTestImplementation libs.runner
-  androidTestImplementation libs.espresso.core
 }

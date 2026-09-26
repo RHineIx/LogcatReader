@@ -827,13 +827,17 @@ fun DeviceLogsScreen(
         }
         LogcatSessionStatusType.Started -> {
           // The logs must be empty at this point.
-          stringResource(R.string.waiting_for_logs)
+          if (logcatPaused) {
+            stringResource(R.string.paused)
+          } else {
+            stringResource(R.string.waiting_for_logs)
+          }
         }
       }
-      val statusType = if (logcatSessionStatus == LogcatSessionStatusType.FailedToStart) {
-        StatusType.Error
-      } else {
-        StatusType.Loading
+      val statusType = when {
+        logcatSessionStatus == LogcatSessionStatusType.FailedToStart -> StatusType.Error
+        logcatSessionStatus == LogcatSessionStatusType.Started && logcatPaused -> StatusType.Paused
+        else -> StatusType.Loading
       }
       Box(
         modifier = Modifier
@@ -1018,6 +1022,7 @@ private sealed interface LogcatSessionStatusType {
 private sealed interface StatusType {
   data object Loading : StatusType
   data object Error : StatusType
+  data object Paused : StatusType
 }
 
 @Composable
@@ -1050,6 +1055,14 @@ private fun StatusMessage(
           CircularProgressIndicator(
             modifier = Modifier.fillMaxSize(),
             strokeWidth = 4.dp,
+          )
+        }
+        StatusType.Paused -> {
+          Icon(
+            modifier = Modifier.fillMaxSize(),
+            imageVector = Icons.Default.Pause,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
           )
         }
       }

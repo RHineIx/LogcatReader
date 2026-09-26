@@ -5,9 +5,7 @@ apply plugin: 'kotlin-android'
 
 android {
   namespace 'com.dp.logcatapp.searchlogs'
-  compileSdk {
-    version = release(36)
-  }
+  compileSdk 36
 
   defaultConfig {
     minSdkVersion 23
@@ -22,9 +20,6 @@ android {
       jvmTarget = JvmTarget.JVM_17
     }
   }
-  testOptions {
-    unitTests.includeAndroidResources = true
-  }
 }
 
 dependencies {
@@ -33,7 +28,4 @@ dependencies {
   implementation libs.core.ktx
   implementation libs.appcompat
   implementation libs.material
-  testImplementation libs.junit
-  testImplementation libs.kotlinx.coroutines.test
-  testImplementation libs.robolectric
 }

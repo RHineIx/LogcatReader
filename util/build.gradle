@@ -29,8 +29,4 @@ dependencies {
 
   implementation platform(libs.compose.bom)
   implementation libs.compose.runtime
-
-  testImplementation libs.junit
-  testImplementation platform(libs.compose.bom)
-  testImplementation libs.compose.runtime
 }
