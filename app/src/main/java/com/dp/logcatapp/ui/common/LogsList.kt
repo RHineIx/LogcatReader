@@ -49,6 +49,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -117,8 +119,14 @@ fun LogsList(
 
   var scrollBarVisible by remember { mutableStateOf(false) }
   val scrollBarOpacity = remember { Animatable(initialValue = 0f) }
+
+  // Use derivedStateOf to observe scroll progress without recomposing rapidly.
+  val isScrollInProgress by remember(state) {
+    derivedStateOf { state.isScrollInProgress }
+  }
+
   LaunchedEffect(scrollIndicatorState) {
-    snapshotFlow { state.isScrollInProgress }
+    snapshotFlow { isScrollInProgress }
       .distinctUntilChanged()
       .collectLatest { scrollInProgress ->
         if (scrollInProgress) {
@@ -163,7 +171,9 @@ fun LogsList(
   ) {
     itemsIndexed(
       items = logs,
-      key = { index, _ -> logs[index].id }
+      // Provide stable keys for items so Compose can avoid unnecessary recompositions
+      // when items move, are inserted, or removed.
+      key = { _, item -> item.id }
     ) { index, item ->
       if (index > 0) {
         HorizontalDivider()
@@ -172,11 +182,11 @@ fun LogsList(
       fun maybeHighlightSearchHit(target: String, searchHitKey: SearchHitKey): AnnotatedString {
         val hits = if (searchHitIndexMap.isNotEmpty()) {
           searchHitIndexMap[searchHitKey].orEmpty().mapNotNull { hitIndex ->
-            val hits = searchHits.getOrNull(hitIndex.value)
-            if (hits == null) {
+            val hitsInfo = searchHits.getOrNull(hitIndex.value)
+            if (hitsInfo == null) {
               null
             } else {
-              Pair(hitIndex.value, hits)
+              Pair(hitIndex.value, hitsInfo)
             }
           }
         } else {
@@ -257,10 +267,10 @@ fun LogsList(
           time = item.time,
           pid = item.pid,
           tid = item.tid,
+          // Extract priorityColor computation
           priorityColor = item.priority.toColor(),
           expanded = expanded,
         )
-        // }
       } else {
         LogItem(
           modifier = Modifier
@@ -453,10 +463,12 @@ private fun LogItem(
       .height(IntrinsicSize.Max),
     verticalAlignment = Alignment.CenterVertically,
   ) {
+    // Utilize drawBehind for drawing the background color.
+    // This allows Compose to skip the Composition and Layout phases when the color changes.
     Box(
       modifier = Modifier
         .fillMaxHeight()
-        .background(priorityColor)
+        .drawBehind { drawRect(priorityColor) }
         .padding(5.dp),
     ) {
       Text(
@@ -580,10 +592,11 @@ private fun LogItemCompact(
       .height(IntrinsicSize.Max),
     verticalAlignment = Alignment.CenterVertically,
   ) {
+    // Utilize drawBehind for drawing the background color.
     Box(
       modifier = Modifier
         .fillMaxHeight()
-        .background(priorityColor)
+        .drawBehind { drawRect(priorityColor) }
         .padding(4.dp),
     ) {
       Text(

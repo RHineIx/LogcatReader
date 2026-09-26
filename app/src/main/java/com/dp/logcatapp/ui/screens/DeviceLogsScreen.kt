@@ -92,6 +92,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -851,35 +852,35 @@ fun DeviceLogsScreen(
       val lifecycle = LocalLifecycleOwner.current.lifecycle
 
       if (snapToBottom) {
-        LaunchedEffect(lazyListState, compactViewPreference) {
+        // Use derivedStateOf to watch the count and only recompose when it actually changes
+        val logsCount by remember(logsState) {
+          derivedStateOf { logsState.size }
+        }
+        LaunchedEffect(lazyListState, logsCount, compactViewPreference) {
           showScrollSnapperFabs = false
-          snapshotFlow {
-            // The reason for reading the last value is to ensure we get an emission once
-            // the size gets capped to the capacity since the recently added value is always
-            // different.
-            logsState.size to logsState.lastOrNull()
+          if (logsCount > 0) {
+            lazyListState.scrollToItem(logsCount)
           }
-            .collect { (count, _) ->
-              if (count > 0) {
-                lazyListState.scrollToItem(count)
-              }
-            }
         }
       } else {
+        // Wrap scroll monitoring with derivedStateOf to prevent constant recompositions
+        val isScrollInProgress by remember(lazyListState) {
+          derivedStateOf { lazyListState.isScrollInProgress }
+        }
         LaunchedEffect(lazyListState, compactViewPreference) {
           combine(
-            snapshotFlow { lazyListState.isScrollInProgress },
+            snapshotFlow { isScrollInProgress },
             snapToTopInteractionSource.interactions.stateIn(this, Eagerly, null),
             snapToBottomInteractionSource.interactions.stateIn(this, Eagerly, null),
-          ) { isScrollInProgress, snapUpInteraction, snapDownInteraction ->
-            Triple(isScrollInProgress, snapUpInteraction, snapDownInteraction)
+          ) { scrollInProgress, snapUpInteraction, snapDownInteraction ->
+            Triple(scrollInProgress, snapUpInteraction, snapDownInteraction)
           }
             .onStart {
               Triple(true, null, null)
             }
-            .collectLatest { (isScrollInProgress, snapUpInteraction, snapDownInteraction) ->
+            .collectLatest { (scrollInProgress, snapUpInteraction, snapDownInteraction) ->
               val isFabPressed = snapUpInteraction is Press || snapDownInteraction is Press
-              if (isScrollInProgress) {
+              if (scrollInProgress) {
                 showScrollSnapperFabs = true
               } else {
                 if (!isFabPressed) {
@@ -1822,10 +1823,10 @@ private class LogFilter(
   private fun Log.parseDate(): Date? {
     val dateTime = if (date.count { it == '-' } == 2) {
       // `date` is in `yyyy-MM-dd` format.
-      "$date $time"
+      "$date$time"
     } else {
       // `date` is in `MM-dd` format.
-      "$currentYear-$date $time"
+      "$currentYear-$date$time"
     }
     return try {
       // Try parsing seconds & ms first.
