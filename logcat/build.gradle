@@ -29,4 +29,5 @@ dependencies {
   implementation project(':util')
   implementation project(':collections')
   implementation libs.documentfile
+  implementation libs.kotlinx.coroutines.core
 }
