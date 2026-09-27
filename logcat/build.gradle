@@ -28,6 +28,5 @@ dependencies {
   implementation project(':logger')
   implementation project(':util')
   implementation project(':collections')
-  implementation libs.appcompat
   implementation libs.documentfile
 }

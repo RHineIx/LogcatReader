@@ -42,7 +42,7 @@ android {
   }
 
   lintOptions {
-    abortOnError = false
+    abortOnError = true
     disable 'MissingTranslation'
   }
 
@@ -85,7 +85,6 @@ dependencies {
   implementation project(':util')
   implementation project(':searchlogs')
   implementation project(':logger')
-  implementation libs.androidx.navigation3.ui
   implementation libs.core.ktx
   implementation libs.appcompat
   implementation libs.material
@@ -121,9 +120,6 @@ dependencies {
   implementation libs.material.icons.core
   // Optional - Add full set of material icons
   implementation libs.material.icons.extended
-  // Optional - Add window size utils
-  implementation libs.adaptive
-
   // Optional - Integration with activities
   implementation libs.activity.compose
   // Optional - Integration with ViewModels

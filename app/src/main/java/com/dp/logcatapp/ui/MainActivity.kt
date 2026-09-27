@@ -29,8 +29,8 @@ class MainActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     installSplashScreen()
-    super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    super.onCreate(savedInstanceState)
 
     if (handleExitNotificationAction(intent)) {
       return
