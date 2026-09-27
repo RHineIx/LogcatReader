@@ -86,7 +86,7 @@ class LogcatSession(
       synchronized(pauseWaiter) {
         paused = value
         if (!paused) {
-          pauseWaiter.notify()
+          pauseWaiter.notifyAll()
         }
       }
     }
@@ -242,10 +242,13 @@ class LogcatSession(
   private fun poll() {
     while (active) {
       synchronized(pauseWaiter) {
-        while (paused) {
+        while (paused && active) {
           try {
             pauseWaiter.wait()
           } catch (_: InterruptedException) {
+            if (!active) {
+              return
+            }
           }
         }
       }

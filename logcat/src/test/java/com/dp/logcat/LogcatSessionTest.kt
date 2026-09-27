@@ -75,6 +75,18 @@ class LogcatSessionTest {
     }
   }
 
+  @Test
+  fun `stopping a paused session clears paused state`() = runTest {
+    val session = createSession()
+    assertTrue(session.start())
+
+    session.isPaused = true
+    session.stop()
+
+    assertFalse(session.isPaused)
+    assertFalse(session.isActive)
+  }
+
   // -- start() preconditions --
 
   @Test(expected = IllegalStateException::class)

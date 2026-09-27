@@ -273,7 +273,9 @@ fun DeviceLogsScreen(
       }
   }
 
-  var logcatPaused by remember { mutableStateOf(false) }
+  // Keep the user's pause choice across configuration changes and process recreation.
+  // The active session remains the source of truth when a new session is attached.
+  var logcatPaused by rememberSaveable { mutableStateOf(false) }
   var showDropDownMenu by remember { mutableStateOf(false) }
 
   var showSearchBar by rememberSaveable { mutableStateOf(false) }
@@ -575,6 +577,7 @@ fun DeviceLogsScreen(
             val logcatSession = viewModel.awaitLogcatSession()
             withContext(Dispatchers.Default) { logcatSession.clearLogs() }
             restartLogCollectionTrigger.send(Unit)
+            snapToBottom = true
           }
           showDropDownMenu = false
         },
@@ -590,22 +593,26 @@ fun DeviceLogsScreen(
           saveLogsInProgress = true
           coroutineScope.launch {
             val logs = logsState.buffer().clone() // Create a copy
-            if (logs.isNotEmpty()) {
-              when (val result = saveLogsToFile(context, logs)) {
-                is SaveResult.Failure -> {
-                  context.showToast(saveFailedMessage)
-                  saveLogsInProgress = false
-                  showDropDownMenu = false
-                }
-                is SaveResult.Success -> {
-                  saveLogsInProgress = false
-                  showDropDownMenu = false
-                  viewModel.savedLogsSheetState = SavedLogsBottomSheetState.Show(
-                    fileName = result.fileName,
-                    uri = result.uri,
-                    isCustomLocation = result.isCustomLocation,
-                  )
-                }
+            if (logs.isEmpty()) {
+              saveLogsInProgress = false
+              showDropDownMenu = false
+              return@launch
+            }
+
+            when (val result = saveLogsToFile(context, logs)) {
+              is SaveResult.Failure -> {
+                context.showToast(saveFailedMessage)
+                saveLogsInProgress = false
+                showDropDownMenu = false
+              }
+              is SaveResult.Success -> {
+                saveLogsInProgress = false
+                showDropDownMenu = false
+                viewModel.savedLogsSheetState = SavedLogsBottomSheetState.Show(
+                  fileName = result.fileName,
+                  uri = result.uri,
+                  isCustomLocation = result.isCustomLocation,
+                )
               }
             }
           }
@@ -897,8 +904,8 @@ fun DeviceLogsScreen(
       }
 
       val enabledLogItems = remember(toggleableLogItemsPref) {
-        toggleableLogItemsPref.orEmpty().map {
-          ToggleableLogItem.entries[it.toInt()]
+        toggleableLogItemsPref.orEmpty().mapNotNull { value ->
+          value.toIntOrNull()?.let { index -> ToggleableLogItem.entries.getOrNull(index) }
         }.toSet()
       }
 
@@ -995,8 +1002,8 @@ fun DeviceLogsScreen(
     if (showDisplayOptions) {
       DisplayOptionsSheet(
         initialEnabledLogcatItems = toggleableLogItemsPref.orEmpty().map {
-          ToggleableLogItem.entries[it.toInt()]
-        }.toSet(),
+          it.toIntOrNull()?.let { index -> ToggleableLogItem.entries.getOrNull(index) }
+        }.filterNotNull().toSet(),
         initialCompactView = compactViewPreference,
         onSave = { enabledLogItems, compactView ->
           showDisplayOptions = false
@@ -1400,7 +1407,10 @@ private fun AppBar(
               contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ),
           ) {
-            Icon(Icons.Default.Search, contentDescription = null)
+            Icon(
+              Icons.Default.Search,
+              contentDescription = stringResource(R.string.search),
+            )
           }
         }
         WithTooltip(
@@ -1418,9 +1428,15 @@ private fun AppBar(
             ),
           ) {
             if (isPaused) {
-              Icon(Icons.Default.PlayArrow, contentDescription = null)
+              Icon(
+                Icons.Default.PlayArrow,
+                contentDescription = stringResource(R.string.resume),
+              )
             } else {
-              Icon(Icons.Default.Pause, contentDescription = null)
+              Icon(
+                Icons.Default.Pause,
+                contentDescription = stringResource(R.string.pause),
+              )
             }
           }
         }
